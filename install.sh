@@ -9,15 +9,11 @@
 
 # --- Configuration ---
 # The raw URL of your main script in the GitHub repository
-SCRIPT_URL="https://raw.githubusercontent.com/MrPinguiiin/db_manager/38fb56d93727227cbc8f0ecdf9dd387c363dc55f/install.sh"
+SCRIPT_URL="https://raw.githubusercontent.com/MrPinguiiin/db_manager/main/backup.sh"
+CMD_NAME="backup.sh"
 
 # The destination directory (standard for user-installed executables)
 INSTALL_DIR="/usr/local/bin"
-
-# The name of the command after installation
-CMD_NAME="db-manager"
-# -------------------
-
 # Ensure the script is run with root privileges
 if [ "$(id -u)" -ne 0 ]; then
    echo "This script must be run as root. Please use 'sudo'." >&2
