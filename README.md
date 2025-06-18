@@ -26,7 +26,19 @@ BACKUP_DIR="./db_backups"    # Directory where backup files are stored
 # -------------------
 ```
 
+## Installation
+
+You can install this script using the following one-liner. This command downloads the `install.sh` script and runs it to install the tool on your system.
+
+> **Note:** The installation script requires `wget` and will use `sudo` for system-wide installation.
+
+```sh
+wget -qO install.sh https://raw.githubusercontent.com/MrPinguiiin/db_manager/main/install.sh && chmod +x install.sh && sudo ./install.sh
+```
+
 ## Usage
+
+If you prefer not to install the script system-wide, you can run it directly.
 
 1.  **Make the script executable:**
     Before running the script for the first time, you need to give it execute permissions.
