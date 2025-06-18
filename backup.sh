@@ -8,6 +8,12 @@
 # a database from/to a PostgreSQL Docker container.
 # =================================================================
 
+# --- Root User Check ---
+if [ "$EUID" -ne 0 ]; then
+  echo "❌ Error: Please run this script as root or using sudo."
+  exit 1
+fi
+
 # --- Default Configuration ---
 # These values can be overridden in Manual Mode.
 CONTAINER_NAME="postgres_db"
@@ -17,7 +23,7 @@ BACKUP_DIR="./db_backups"
 
 # --- Global State ---
 CONTAINER_INITIALIZED=false
-CONTAINER_DISCOVERY="auto" # Default mode
+CONTAINER_DISCOVERY="auto"
 
 # Function to display an error message and exit
 error_exit() {
@@ -91,7 +97,6 @@ initialize_container() {
         echo "🔍 Auto-detecting running PostgreSQL containers..."
         local running_containers
         
-        # PERBAIKAN DI SINI: Menggunakan metode filter yang lebih andal
         running_containers=($(docker ps --filter "status=running" --format "{{.Names}}\t{{.Image}}" | grep -E '\spostgres' | awk '{print $1}'))
 
         if [ ${#running_containers[@]} -eq 0 ]; then
@@ -128,7 +133,6 @@ initialize_container() {
 
 # --- Interactive Backup Function ---
 do_backup() {
-    # (Fungsi ini tidak perlu diubah, isinya tetap sama)
     echo ""
     echo "--- Starting Backup Process ---"
 
@@ -175,7 +179,6 @@ do_backup() {
 
 # --- Interactive Restore Function ---
 do_restore() {
-    # (Fungsi ini tidak perlu diubah, isinya tetap sama)
     echo ""
     echo "--- Starting Restore Process ---"
 

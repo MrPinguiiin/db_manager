@@ -47,6 +47,8 @@ wget -qO install.sh https://raw.githubusercontent.com/MrPinguiiin/db_manager/mai
 
 If you prefer not to install the script system-wide, you can run it directly.
 
+> **Important:** This script requires root privileges to interact with the Docker daemon. Please run all commands using `sudo`.
+
 1.  **Make the script executable:**
     Before running the script for the first time, you need to give it execute permissions.
 
@@ -54,11 +56,11 @@ If you prefer not to install the script system-wide, you can run it directly.
     chmod +x backup.sh
     ```
 
-2.  **Run the script:**
+2.  **Run the script with sudo:**
     Execute the script from your terminal.
 
     ```sh
-    ./backup.sh
+    sudo ./backup.sh
     ```
 
 3.  **Follow the interactive menu:**
