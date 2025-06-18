@@ -12,19 +12,26 @@ Before using this script, ensure you have the following installed and configured
 
 ## Configuration
 
-You can configure the script by editing the following variables at the top of the `backup.sh` file:
+You can configure the script by editing the variables at the top of the `backup.sh` file.
 
--   `CONTAINER_NAME`: The name of your running PostgreSQL Docker container. (Default: `postgres_db`)
--   `DB_USER`: The PostgreSQL user to connect with. This user must have permission to access the databases and perform dumps. (Default: `postgres`)
--   `BACKUP_DIR`: The local directory where backup files will be stored. The script will create this directory if it doesn't exist. (Default: `./db_backups`)
+| Variable              | Description                                                                                                                               |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `CONTAINER_DISCOVERY` | Set the container discovery method. Can be `auto` or `manual`.                                                                            |
+| `CONTAINER_NAME`      | The name of your PostgreSQL Docker container. **This is only used if `CONTAINER_DISCOVERY` is set to `manual`**.                            |
+| `DB_USER`             | The PostgreSQL user for connecting to the database. This user must have permissions to perform dumps.                                     |
+| `BACKUP_DIR`          | The local directory where backup files will be stored. The script creates this directory if it doesn't exist.                             |
 
-```bash
-# --- Configuration ---
-CONTAINER_NAME="postgres_db" # Adjust to your PostgreSQL container name
-DB_USER="postgres"           # Adjust to your PostgreSQL user
-BACKUP_DIR="./db_backups"    # Directory where backup files are stored
-# -------------------
-```
+### Container Discovery
+
+-   **`auto` (Default):**
+    -   The script will automatically search for running containers based on the official `postgres` image.
+    -   If only one container is found, it will be selected automatically.
+    -   If multiple containers are found, you will be prompted to choose one.
+    -   If no containers are found, the script will exit with an error.
+
+-   **`manual`:**
+    -   The script will use the value specified in the `CONTAINER_NAME` variable.
+    -   It will first check if a container with that exact name is currently running. If not, it will exit with an error.
 
 ## Installation
 

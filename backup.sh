@@ -9,10 +9,16 @@
 # =================================================================
 
 # --- Configuration ---
-CONTAINER_NAME="postgres_db" # Adjust with your PostgreSQL container name
-DB_USER="postgres"           # Adjust with your PostgreSQL user
-BACKUP_DIR="./db_backups"    # Directory where backup files will be stored
+# Container discovery method: 'auto' or 'manual'.
+# 'auto': The script will try to find a running PostgreSQL container.
+# 'manual': You must specify the exact CONTAINER_NAME below.
+CONTAINER_DISCOVERY="auto"
+
+CONTAINER_NAME="postgres_db" # Used if CONTAINER_DISCOVERY is 'manual'. Adjust with your PostgreSQL container name
 # -------------------
+
+# --- Global State ---
+CONTAINER_INITIALIZED=false
 
 # Function to display an error message and exit
 error_exit() {
@@ -24,8 +30,54 @@ error_exit() {
 # Create the backup directory if it doesn't exist
 mkdir -p "$BACKUP_DIR" || error_exit "Failed to create backup directory: $BACKUP_DIR"
 
+# --- Container Initialization Function ---
+initialize_container() {
+    # Run initialization only once
+    if [ "$CONTAINER_INITIALIZED" = true ]; then
+        return
+    fi
+
+    if [ "$CONTAINER_DISCOVERY" = "auto" ]; then
+        echo "🔍 Auto-detecting running PostgreSQL containers..."
+        # Find containers using the official 'postgres' image
+        local running_containers
+        running_containers=($(docker ps --filter "status=running" --filter "ancestor=postgres" --format "{{.Names}}"))
+
+        if [ ${#running_containers[@]} -eq 0 ]; then
+            error_exit "No running PostgreSQL containers found. Please start your container or use manual configuration."
+        elif [ ${#running_containers[@]} -eq 1 ]; then
+            CONTAINER_NAME=${running_containers[0]}
+            echo "✅ Automatically selected container: '$CONTAINER_NAME'"
+        else
+            echo "Multiple PostgreSQL containers found. Please select one:"
+            local i=1
+            for container in "${running_containers[@]}"; do
+                echo "$i. $container"
+                i=$((i+1))
+            done
+            echo ""
+            local choice
+            read -p "Enter the number of the container to use: " choice
+
+            if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt ${#running_containers[@]} ]; then
+                error_exit "Invalid selection."
+            fi
+            CONTAINER_NAME=${running_containers[$((choice-1))]}
+        fi
+    else
+        echo "⚙️  Manual mode: Checking for container '$CONTAINER_NAME'..."
+        if ! docker ps --filter "name=^${CONTAINER_NAME}$" --filter "status=running" | grep -q "$CONTAINER_NAME"; then
+            error_exit "Container '$CONTAINER_NAME' is not running or does not exist. Please check the name and status."
+        fi
+        echo "✅ Container '$CONTAINER_NAME' found and is running."
+    fi
+    echo ""
+    CONTAINER_INITIALIZED=true
+}
+
 # --- Interactive Backup Function ---
 do_backup() {
+    initialize_container
     echo ""
     echo "--- Starting Backup Process ---"
 
@@ -76,6 +128,7 @@ do_backup() {
 
 # --- Interactive Restore Function ---
 do_restore() {
+    initialize_container
     echo ""
     echo "--- Starting Restore Process ---"
 
