@@ -9,7 +9,7 @@
 
 # --- Configuration ---
 # The raw URL of your main script in the GitHub repository
-SCRIPT_URL="https://raw.githubusercontent.com/MrPinguiiin/db_manager/main/db-manager"
+SCRIPT_URL="https://raw.githubusercontent.com/MrPinguiiin/db_manager/38fb56d93727227cbc8f0ecdf9dd387c363dc55f/install.sh"
 
 # The destination directory (standard for user-installed executables)
 INSTALL_DIR="/usr/local/bin"
