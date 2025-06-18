@@ -3,22 +3,21 @@
 # =================================================================
 #           POSTGRESQL DATABASE MANAGEMENT SCRIPT FOR DOCKER
 # =================================================================
-# Version 2.0: With accurate pipeline error detection.
+# Version 3.0: Interactive configuration mode (Auto/Manual).
 # This script allows you to interactively back up and restore
 # a database from/to a PostgreSQL Docker container.
 # =================================================================
 
-# --- Configuration ---
-# Container discovery method: 'auto' or 'manual'.
-# 'auto': The script will try to find a running PostgreSQL container.
-# 'manual': You must specify the exact CONTAINER_NAME below.
-CONTAINER_DISCOVERY="auto"
-
-CONTAINER_NAME="postgres_db" # Used if CONTAINER_DISCOVERY is 'manual'. Adjust with your PostgreSQL container name
-# -------------------
+# --- Default Configuration ---
+# These values can be overridden in Manual Mode.
+CONTAINER_NAME="postgres_db"
+DB_USER="postgres"
+BACKUP_DIR="./db_backups"
+# -----------------------------
 
 # --- Global State ---
 CONTAINER_INITIALIZED=false
+CONTAINER_DISCOVERY="auto" # Default mode
 
 # Function to display an error message and exit
 error_exit() {
@@ -27,19 +26,73 @@ error_exit() {
     exit 1
 }
 
-# Create the backup directory if it doesn't exist
-mkdir -p "$BACKUP_DIR" || error_exit "Failed to create backup directory: $BACKUP_DIR"
+# --- Interactive Configuration Setup ---
+setup_configuration() {
+    clear
+    echo "========================================"
+    echo "  PostgreSQL Docker Database Management "
+    echo "========================================"
+    echo "Please choose a configuration mode:"
+    echo "1) Automatic (Recommended)"
+    echo "2) Manual"
+    echo ""
+    read -p "Enter your choice (1-2): " mode_choice
+
+    case $mode_choice in
+        1)
+            echo "✅ Automatic mode selected."
+            CONTAINER_DISCOVERY="auto"
+            ;;
+        2)
+            echo "⚙️  Manual mode selected. Please provide the configuration details."
+            CONTAINER_DISCOVERY="manual"
+            
+            # Prompt for Container Name, pre-filling with the default value
+            read -p "Enter Docker Container Name [default: $CONTAINER_NAME]: " CONTAINER_NAME_INPUT
+            if [ -n "$CONTAINER_NAME_INPUT" ]; then
+                CONTAINER_NAME="$CONTAINER_NAME_INPUT"
+            fi
+
+            # Prompt for Database User
+            read -p "Enter PostgreSQL User [default: $DB_USER]: " DB_USER_INPUT
+            if [ -n "$DB_USER_INPUT" ]; then
+                DB_USER="$DB_USER_INPUT"
+            fi
+
+            # Prompt for Backup Directory
+            read -p "Enter Backup Directory [default: $BACKUP_DIR]: " BACKUP_DIR_INPUT
+            if [ -n "$BACKUP_DIR_INPUT" ]; then
+                BACKUP_DIR="$BACKUP_DIR_INPUT"
+            fi
+            ;;
+        *)
+            error_exit "Invalid choice. Please run the script again."
+            ;;
+    esac
+
+    # Create the backup directory
+    mkdir -p "$BACKUP_DIR" || error_exit "Failed to create backup directory: $BACKUP_DIR"
+    
+    echo ""
+    echo "--- Configuration for this session ---"
+    echo "Mode: $CONTAINER_DISCOVERY"
+    echo "Container Name: $CONTAINER_NAME"
+    echo "Database User: $DB_USER"
+    echo "Backup Directory: $BACKUP_DIR"
+    echo "--------------------------------------"
+    echo ""
+    read -p "Press Enter to continue..."
+}
+
 
 # --- Container Initialization Function ---
 initialize_container() {
-    # Run initialization only once
     if [ "$CONTAINER_INITIALIZED" = true ]; then
         return
     fi
 
     if [ "$CONTAINER_DISCOVERY" = "auto" ]; then
         echo "🔍 Auto-detecting running PostgreSQL containers..."
-        # Find containers using the official 'postgres' image
         local running_containers
         running_containers=($(docker ps --filter "status=running" --filter "ancestor=postgres" --format "{{.Names}}"))
 
@@ -77,7 +130,6 @@ initialize_container() {
 
 # --- Interactive Backup Function ---
 do_backup() {
-    initialize_container
     echo ""
     echo "--- Starting Backup Process ---"
 
@@ -116,7 +168,6 @@ do_backup() {
     echo "File will be saved as: $(basename "$BACKUP_FILE")"
 
     # 3. Execute the backup
-    # FIX: Added --clean to include DROP commands for a smoother restore
     docker exec -t "$CONTAINER_NAME" pg_dump --clean -U "$DB_USER" -d "$DATABASE_TO_BACKUP" > "$BACKUP_FILE"
 
     if [ $? -eq 0 ]; then
@@ -128,7 +179,6 @@ do_backup() {
 
 # --- Interactive Restore Function ---
 do_restore() {
-    initialize_container
     echo ""
     echo "--- Starting Restore Process ---"
 
@@ -193,15 +243,9 @@ do_restore() {
     echo ""
     echo "Starting restore process for database '$TARGET_DATABASE'..."
     
-    # KEY FIX HERE: Use 'set -o pipefail'
-    # This ensures the script fails if psql fails, not just if docker exec fails.
     set -o pipefail
     cat "$SELECTED_BACKUP" | docker exec -i "$CONTAINER_NAME" psql -U "$DB_USER" -d "$TARGET_DATABASE"
-    
-    # Save the exit code before running other commands
     EXIT_CODE=$?
-    
-    # Revert to normal behavior
     set +o pipefail
 
     if [ $EXIT_CODE -eq 0 ]; then
@@ -211,12 +255,20 @@ do_restore() {
     fi
 }
 
-# --- Main Menu ---
+# --- Main Program Flow ---
+
+# 1. Setup the configuration based on user's choice
+setup_configuration
+
+# 2. Initialize and verify the container
+initialize_container
+
+# 3. Show the main action menu
 clear
 echo "========================================"
-echo "  PostgreSQL Docker Database Management "
+echo "          Main Action Menu"
 echo "========================================"
-echo "Select the operation you want to perform:"
+echo "Configuration is set. Please choose an operation:"
 echo "1) Backup Database"
 echo "2) Restore Database"
 echo "3) Exit"
