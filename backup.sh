@@ -3,7 +3,7 @@
 # =================================================================
 #           POSTGRESQL DATABASE MANAGEMENT SCRIPT FOR DOCKER
 # =================================================================
-# Version 3.0: Interactive configuration mode (Auto/Manual).
+# Version 3.1: Improved automatic container detection.
 # This script allows you to interactively back up and restore
 # a database from/to a PostgreSQL Docker container.
 # =================================================================
@@ -47,19 +47,16 @@ setup_configuration() {
             echo "⚙️  Manual mode selected. Please provide the configuration details."
             CONTAINER_DISCOVERY="manual"
             
-            # Prompt for Container Name, pre-filling with the default value
             read -p "Enter Docker Container Name [default: $CONTAINER_NAME]: " CONTAINER_NAME_INPUT
             if [ -n "$CONTAINER_NAME_INPUT" ]; then
                 CONTAINER_NAME="$CONTAINER_NAME_INPUT"
             fi
 
-            # Prompt for Database User
             read -p "Enter PostgreSQL User [default: $DB_USER]: " DB_USER_INPUT
             if [ -n "$DB_USER_INPUT" ]; then
                 DB_USER="$DB_USER_INPUT"
             fi
 
-            # Prompt for Backup Directory
             read -p "Enter Backup Directory [default: $BACKUP_DIR]: " BACKUP_DIR_INPUT
             if [ -n "$BACKUP_DIR_INPUT" ]; then
                 BACKUP_DIR="$BACKUP_DIR_INPUT"
@@ -70,13 +67,12 @@ setup_configuration() {
             ;;
     esac
 
-    # Create the backup directory
     mkdir -p "$BACKUP_DIR" || error_exit "Failed to create backup directory: $BACKUP_DIR"
     
     echo ""
     echo "--- Configuration for this session ---"
     echo "Mode: $CONTAINER_DISCOVERY"
-    echo "Container Name: $CONTAINER_NAME"
+    echo "Container Name (if manual): $CONTAINER_NAME"
     echo "Database User: $DB_USER"
     echo "Backup Directory: $BACKUP_DIR"
     echo "--------------------------------------"
@@ -94,7 +90,9 @@ initialize_container() {
     if [ "$CONTAINER_DISCOVERY" = "auto" ]; then
         echo "🔍 Auto-detecting running PostgreSQL containers..."
         local running_containers
-        running_containers=($(docker ps --filter "status=running" --filter "ancestor=postgres" --format "{{.Names}}"))
+        
+        # PERBAIKAN DI SINI: Menggunakan metode filter yang lebih andal
+        running_containers=($(docker ps --filter "status=running" --format "{{.Names}}\t{{.Image}}" | grep -E '\spostgres' | awk '{print $1}'))
 
         if [ ${#running_containers[@]} -eq 0 ]; then
             error_exit "No running PostgreSQL containers found. Please start your container or use manual configuration."
@@ -130,10 +128,10 @@ initialize_container() {
 
 # --- Interactive Backup Function ---
 do_backup() {
+    # (Fungsi ini tidak perlu diubah, isinya tetap sama)
     echo ""
     echo "--- Starting Backup Process ---"
 
-    # 1. Select the database to back up
     echo "Fetching database list from container '$CONTAINER_NAME'..."
     db_list=($(docker exec "$CONTAINER_NAME" psql -U "$DB_USER" -l -t | awk '{print $1}' | grep -vE 'template[01]|postgres'))
     if [ ${#db_list[@]} -eq 0 ]; then
@@ -154,7 +152,6 @@ do_backup() {
     fi
     DATABASE_TO_BACKUP="${db_list[$((db_choice-1))]}"
 
-    # 2. Specify the backup filename
     read -p "Enter a prefix for the backup file (e.g., myapp_full): " FILENAME_PREFIX
     if [ -z "$FILENAME_PREFIX" ]; then
         error_exit "Backup file prefix cannot be empty."
@@ -167,7 +164,6 @@ do_backup() {
     echo "Starting database backup for '$DATABASE_TO_BACKUP'..."
     echo "File will be saved as: $(basename "$BACKUP_FILE")"
 
-    # 3. Execute the backup
     docker exec -t "$CONTAINER_NAME" pg_dump --clean -U "$DB_USER" -d "$DATABASE_TO_BACKUP" > "$BACKUP_FILE"
 
     if [ $? -eq 0 ]; then
@@ -179,10 +175,10 @@ do_backup() {
 
 # --- Interactive Restore Function ---
 do_restore() {
+    # (Fungsi ini tidak perlu diubah, isinya tetap sama)
     echo ""
     echo "--- Starting Restore Process ---"
 
-    # 1. Select the backup file
     echo "Searching for backup files in directory '$BACKUP_DIR'..."
     backups=($(find "$BACKUP_DIR" -maxdepth 1 -type f \( -name "*.sql" -o -name "*.backup" -o -name "*.dump" \)))
     if [ ${#backups[@]} -eq 0 ]; then
@@ -205,7 +201,6 @@ do_restore() {
     echo "You selected: $(basename "$SELECTED_BACKUP")"
     echo ""
 
-    # 2. Select the target database
     echo "Fetching database list from container '$CONTAINER_NAME'..."
     db_list=($(docker exec "$CONTAINER_NAME" psql -U "$DB_USER" -l -t | awk '{print $1}' | grep -vE 'template[01]|postgres'))
     if [ ${#db_list[@]} -eq 0 ]; then
@@ -227,7 +222,6 @@ do_restore() {
     TARGET_DATABASE="${db_list[$((db_choice-1))]}"
     echo ""
 
-    # 3. Confirm and execute
     echo "---------------------------------------------------------"
     echo "WARNING! You are about to overwrite the contents of an existing database."
     echo "---------------------------------------------------------"
@@ -256,14 +250,9 @@ do_restore() {
 }
 
 # --- Main Program Flow ---
-
-# 1. Setup the configuration based on user's choice
 setup_configuration
-
-# 2. Initialize and verify the container
 initialize_container
 
-# 3. Show the main action menu
 clear
 echo "========================================"
 echo "          Main Action Menu"
