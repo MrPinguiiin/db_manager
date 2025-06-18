@@ -10,7 +10,7 @@
 
 # --- Root User Check ---
 if [ "$EUID" -ne 0 ]; then
-  echo "❌ Error: Please run this script as root or using sudo."
+  echo "❌ Error: This script cannot be run without root privileges. Please use 'sudo' to execute it."
   exit 1
 fi
 
